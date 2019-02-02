@@ -106,8 +106,6 @@ class MPIDataSource(object):
 
             self.nevent += 1
 
-            evt = next(self.event_generator)
-
             # logic for regular gathers
             if (self.global_gather_interval is not None) and \
                (self.nevent > 1)                              and \
@@ -115,13 +113,18 @@ class MPIDataSource(object):
                 self.sd.gather()
 
             if self.nevent % size == rank:
-                self._currevt = evt
-                yield evt
+                yield self.event_generator(self.nevent)
 
         if hasattr(self, 'sd'):
             self.sd.gather()
 
         return
+
+
+    def small_data(self, filename, timestamp_key, keys_to_save=[]):
+        self.sd = SmallData(filename, timestamp_key, keys_to_save=keys_to_save)
+        return self.sd
+
 
 
 class SynchDict(dict):
@@ -556,9 +559,13 @@ class SmallData(object):
 
     def _dlist_append_client(self, key, value):
 
-        data_type = type(value)
+        #data_type = type(value)
+        try:
+            data_type = num_or_array(value)
+        except:
+            raise ValueError('cant determine type of %s' % key)
 
-        if data_type is np.ndarray:
+        if data_type is 'array':
             value = np.atleast_1d(value)
             if key.startswith(RAGGED_PREFIX):
                 if len(value.shape)>1:
@@ -568,9 +575,13 @@ class SmallData(object):
                 # this may get over-ruled by the SynchDict
                 self._arr_send_list[key] = [value.dtype, value.shape]
 
-        else:
+        elif data_type is 'num':
             if key not in self._num_send_list:
-                self._num_send_list[key] = [data_type]
+                self._num_send_list[key] = [type(value)]
+
+        else:
+            raise TypeError('%s is neither number or array, '
+                            'got: %s' % (key, data_type))
 
         if key not in self._dlist.keys():
             self._dlist[key] = []
@@ -626,8 +637,11 @@ class SmallData(object):
         """
 
         # get timestamp data for most recently yielded evt
-        evt_id = kwargs[self.timestamp_key]
-        #evt_id = self._currevt[self.timestamp_key]
+        if self.timestamp_key in kwargs.keys():
+            evt_id = kwargs[self.timestamp_key]
+        else:
+            raise ValueError('could not find timestamp key `%s` in event'
+                             '' % self.timestamp_key)
         if evt_id is None: return  # can't do anything without a timestamp
 
         # *args can be used to pass hdf5 hierarchies (groups/names) in a dict
