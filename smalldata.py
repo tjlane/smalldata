@@ -10,6 +10,11 @@ Jan 2017
 Forked for use at SwissFEL
 Jan 2019 TJL
 
+-------------------------------------------------------------
+
+Adding EuXFEL compatibility
+May 2019 TJL
+
 """
 
 
@@ -664,7 +669,10 @@ class SmallData(object):
 
                     # if the list is as long as the # evts seen, 
                     # user has tried to add key twice
-                    if len( self._dlist.get(k, []) ) == events_seen:        # False if key not in dlist
+                    # that is OK if it is the timestamp_key
+                    if k == self.timestamp_key:
+                        pass
+                    elif len( self._dlist.get(k, []) ) == events_seen:        # False if key not in dlist
                         warnings.warn('Found duplicate key %s for event '
                                       'with time %d'% (k,evt_id))
 
