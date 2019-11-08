@@ -16,7 +16,7 @@ quickly parallelize it to scale linearly to 1000s of cores.
 
 Here is a simple example of code that uses smalldata
 
-```
+```python
 import numpy as np
 from smalldata import SmallData
 
